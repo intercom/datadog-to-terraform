@@ -1,10 +1,12 @@
 function literalString(value) {
   if (typeof value === "string") {
+    value = value.replaceAll(`"`, `\\"`);
     if (value.includes("\n")) {
       return `<<EOF\n${value}\nEOF`;
     }
     return `"${value}"`;
-  } else if (Array.isArray(value)) {
+  }
+  if (Array.isArray(value)) {
     let result = "[";
     value.forEach((elem, index) => {
       result += literalString(elem);
@@ -23,8 +25,14 @@ export function assignmentString(key, value) {
 
 export function map(contents, converter) {
   let result = "";
-  Object.entries(contents).forEach(([key, value]) => {
-    result += converter(key, value);
+  const ordered = Object.keys(contents)
+    .sort()
+    .reduce((v, k) => {
+      v[k] = contents[k];
+      return v;
+    }, {});
+  Object.entries(ordered).forEach(([k, v]) => {
+    result += converter(k, v);
   });
   return result;
 }
@@ -33,11 +41,24 @@ export function block(name, contents, converter) {
   return `\n${name} {${map(contents, converter)}\n}`;
 }
 
+function queryBlock(name, contents, converter) {
+  return `\nquery {\n\n  ${name} {${map(contents, converter)}\n}}`;
+}
+
 export function blockList(array, blockName, contentConverter) {
-  let result = "";
+  let result = "\n";
   array.forEach((elem) => {
     result += block(blockName, elem, contentConverter);
   });
+  return result;
+}
+
+export function queryBlockList(array, contentConverter) {
+  let result = ["\n"];
+  array.forEach((elem) => {
+    result.push(queryBlock("metric_query", elem, contentConverter));
+  });
+  result = result.join("");
   return result;
 }
 
